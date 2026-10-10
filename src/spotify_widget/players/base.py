@@ -33,6 +33,10 @@ class Player:
         """Carry out 'PlayPause', 'Next' or 'Previous'."""
         raise NotImplementedError
 
+    def seek(self, position):
+        """Jump to a position in the song, in seconds."""
+        raise NotImplementedError
+
     def set_volume(self, level):
         """Set the player's volume from 0 to 1."""
         raise NotImplementedError

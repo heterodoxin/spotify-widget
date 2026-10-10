@@ -15,6 +15,7 @@ class MprisPlayer(Player):
         self.lock = threading.Lock()
         self.connection = None
         self.name = None
+        self.track = None
 
     def call(self, message):
         """Send one message and return its body, reconnecting once if the bus went away."""
@@ -70,9 +71,10 @@ class MprisPlayer(Player):
         if not title:
             return None
         artist = meta.get('xesam:artist', '')
+        self.track = str(meta.get('mpris:trackid', ''))
         volume = props.get('Volume')
         return State(
-            track_id=str(meta.get('mpris:trackid', '')) + title,
+            track_id=self.track + title,
             title=title,
             artist=', '.join(artist) if isinstance(artist, list) else str(artist),
             album=str(meta.get('xesam:album', '')),
@@ -86,6 +88,10 @@ class MprisPlayer(Player):
     def command(self, action):
         if self.name:
             self.call(new_method_call(self.address(self.name), action))
+
+    def seek(self, position):
+        if self.name and self.track:
+            self.call(new_method_call(self.address(self.name), 'SetPosition', 'ox', (self.track, int(position*1e6))))
 
     def set_volume(self, level):
         if self.name:

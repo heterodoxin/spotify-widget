@@ -15,9 +15,15 @@ The volume slider lights up under the pointer, and the card says so when Spotify
 | --- | --- |
 | <img src="docs/volume.png" width="420" alt="The volume slider under the pointer"> | <img src="docs/idle.png" width="420" alt="The card with nothing playing"> |
 
+The progress bar can be dragged to any point in the song, and the first lines of a song start at the top of the card:
+
+| | |
+| --- | --- |
+| <img src="docs/seek.png" width="420" alt="The progress bar under the pointer"> | <img src="docs/start.png" width="420" alt="The card one second into a song"> |
+
 ## What is this project
 
-Spotify Widget is a small always-visible card that shows time-synced lyrics for the song playing in Spotify, next to its cover, name, artist and progress. It reads the song from Spotify through the system's media player interface, fetches matching lyrics from [lrclib.net](https://lrclib.net), and scrolls them in step with playback. The card also carries previous, play/pause and next buttons and a volume slider, takes its colour from the album cover, and can be dragged to any corner of any screen. It listens to Spotify only, so a video in a browser or any other player leaves it alone. It runs on Linux, Windows and macOS.
+Spotify Widget is a small always-visible card that shows time-synced lyrics for the song playing in Spotify, next to its cover, name, artist and progress. It reads the song from Spotify through the system's media player interface, fetches matching lyrics from [lrclib.net](https://lrclib.net), and scrolls them in step with playback. The card also carries previous, play/pause and next buttons, a progress bar that seeks and a volume slider, takes its colour from the album cover, and can be dragged to any corner of any screen. It listens to Spotify only, so a video in a browser or any other player leaves it alone. It runs on Linux, Windows and macOS.
 
 ## Install
 
@@ -39,7 +45,7 @@ spotify-widget
 | `spotify-widget status` | Print whether it is running, the corner it sits in and the current song |
 | `spotify-widget quit` | Stop the widget |
 
-On the card itself: drag it to move it, click the buttons to control playback, drag the slider on the right edge or scroll anywhere on the card to change volume, and click the speaker to mute.
+On the card itself: drag it to move it, click the buttons to control playback, click or drag the progress bar to jump within the song, drag the slider on the right edge or scroll anywhere on the card to change volume, and click the speaker to mute.
 
 ### Toggle key
 
@@ -69,12 +75,12 @@ Measured on a Ryzen 9 9950X running Hyprland 0.56.2 with PySide6 6.11.1:
 - On Hyprland each window move is one message on the compositor's socket, which takes 0.06 ms, so dragging stays in step with the pointer.
 - Lyrics and covers are cached on disk, so a song costs one request to lrclib.net the first time it plays and none after that.
 - When the exact lookup finds nothing, or finds a record with only unsynced text, a second search by title and first artist picks the synced result whose length is within three seconds of the song. This recovers songs credited to several artists and songs whose album entry was never synced.
-- The test suite has 47 tests covering the drag physics, lyric parsing and lookup, the choice of player, the toggle key and the card's controls. It runs without a display or a media player.
+- The test suite has 50 tests covering the drag physics, lyric parsing and lookup, the choice of player, the toggle key and the card's controls. It runs without a display or a media player.
 
 ## Why should I care
 
 - Lyrics stay on screen while you do something else, in a corner you choose, on every workspace.
-- You can pause, skip and change volume from the card instead of switching to the player.
+- You can pause, skip, seek and change volume from the card instead of switching to the player.
 - It follows Spotify and nothing else. A video in a browser, a game or another music player never replaces the song on the card, and with no Spotify song it reads "Nothing playing".
 - Nothing needs configuring. There is no account, no API key and no settings file, the toggle key works out of the box, and the only thing it remembers is the corner you left it in.
 - The only data that leaves the machine is the song's title, artist, album and length, sent to lrclib.net to find lyrics, plus the request for the cover image.
@@ -83,11 +89,11 @@ Measured on a Ryzen 9 9950X running Hyprland 0.56.2 with PySide6 6.11.1:
 
 ### Moving the card
 
-The card is tied to its corner by a spring. While you hold it, it follows the pointer by two fifths of the distance at first and less the further it is pulled. Its reach is 18% of the screen's width (at most 440 px) sideways and 20% of its height (at most 280 px) up or down:
+The card is tied to its corner by a spring. While you hold it, it follows the pointer by three tenths of the distance at first and less the further it is pulled. Its reach is 24% of the screen's width (at most 560 px) sideways and 26% of its height (at most 360 px) up or down:
 
 - Pulled past its reach, the card lets go of its corner and glides to the next one while the button is still down. On the side that gave, the pull is then measured from the new corner, so one drag can carry it across two corners or onto another screen.
-- Speed counts toward the reach. While held, 0.06 seconds of the pointer's speed is added to the pull; on release, 0.14 seconds is, so a short flick is enough. A sideways flick keeps its row and an upward flick keeps its column.
-- On release the card keeps 35% of the pointer's speed and a damped spring carries it to its corner. A short, slow pull returns it to the corner it came from.
+- While held, only distance counts, so a fast jerk does not move it. On release, 0.05 seconds of the pointer's speed is added to the pull.
+- On release the card keeps 35% of the pointer's speed and a damped spring carries it to its corner. A pull short of the reach returns it to the corner it came from.
 - When the pointer enters another screen, the card goes to the corner of that screen nearest the pointer.
 
 The chosen screen and corner are saved and restored on the next start. If that screen is gone, the card moves to the screen in use.
@@ -107,7 +113,7 @@ On Linux the widget picks its backend from the environment. Setting `SPOTIFY_WID
 
 On macOS the first start asks for permission to control Spotify, because the song is read through AppleScript.
 
-Wayland does not let a window choose its own position, which is why the card is moved through the compositor there. Clicking the card gives it keyboard focus, so on release the widget hands focus back to the window that had it.
+Wayland does not let a window choose its own position, which is why the card is moved through the compositor there. Clicking the card gives it keyboard focus, so on release the widget hands focus back to the window that had it. Hyprland moves the pointer to a window it focuses, so the widget turns `cursor:no_warps` on for that one step and then puts it back as it was.
 
 ### Which players count as Spotify
 
@@ -123,6 +129,8 @@ On Linux a player is read when its MPRIS name contains `spotify`, `ncspot` or `l
 The Linux paths follow `XDG_CACHE_HOME` and `XDG_CONFIG_HOME` when they are set. Deleting the cache is safe; it is rebuilt as songs play.
 
 ### Lyrics
+
+The line being sung sits in the middle of the card. At the start and end of a song, where that would leave empty space, the lines rest against the top or bottom edge and the highlight moves through them until the middle is reached.
 
 Only time-synced lyrics are shown. A song with none shows "No synced lyrics for this song", and a track marked instrumental shows "Instrumental". A failed lookup is not cached, so it is tried again the next time the song plays.
 

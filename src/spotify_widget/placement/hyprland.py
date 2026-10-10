@@ -103,7 +103,20 @@ class HyprlandPlacement(Placement):
         # Clicking the card focused it, so the keyboard goes back to the window that had it.
         if not self.last_active:
             return
+        # Focusing a window pulls the pointer to its middle, so pointer warps are switched off for the hand-back.
+        option = json.loads(request('j/getoption cursor:no_warps'))
+        warps = not option.get('bool', option.get('int'))
+        if warps:
+            self.no_warps(True)
         if self.lua:
             request(f"/dispatch hl.dsp.focus({{ window = 'address:{self.last_active}' }})")
         else:
             request(f'/dispatch focuswindow address:{self.last_active}')
+        if warps:
+            self.no_warps(False)
+
+    def no_warps(self, on):
+        if self.lua:
+            request(f"/eval hl.config({{ cursor = {{ no_warps = {'true' if on else 'false'} }} }})")
+        else:
+            request(f"/keyword cursor:no_warps {'true' if on else 'false'}")

@@ -65,12 +65,22 @@ async def act(action):
         await session.try_skip_previous_async()
 
 
+async def jump(position):
+    session = await current_session()
+    if session is not None:
+        # Windows counts playback positions in units of 100 nanoseconds.
+        await session.try_change_playback_position_async(int(position*1e7))
+
+
 class WindowsPlayer(Player):
     def poll(self):
         return asyncio.run(read())
 
     def command(self, action):
         asyncio.run(act(action))
+
+    def seek(self, position):
+        asyncio.run(jump(position))
 
     def set_volume(self, level):
         """The system media controls carry no volume, so the card hides its slider on Windows."""

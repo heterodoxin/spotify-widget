@@ -51,12 +51,16 @@ class FakePlayer(Player):
         self.state = None
         self.commands = []
         self.levels = []
+        self.seeks = []
 
     def poll(self):
         return self.state
 
     def command(self, action):
         self.commands.append(action)
+
+    def seek(self, position):
+        self.seeks.append(position)
 
     def set_volume(self, level):
         self.levels.append(level)

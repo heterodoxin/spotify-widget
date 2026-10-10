@@ -39,5 +39,8 @@ class MacPlayer(Player):
     def command(self, action):
         run(f'tell application "Spotify" to {ACTIONS[action]}')
 
+    def seek(self, position):
+        run(f'tell application "Spotify" to set player position to {position:.2f}')
+
     def set_volume(self, level):
         run(f'tell application "Spotify" to set sound volume to {round(level*100)}')

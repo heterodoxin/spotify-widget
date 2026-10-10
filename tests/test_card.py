@@ -32,26 +32,32 @@ def test_shows_the_song_and_its_lyrics(rig):
 def test_held_card_gives_way_but_resists(rig, drag):
     card, placement, _ = rig
     given, _ = drag(card, placement, 160, 100, 0.5, hold=0.4)
-    assert 40 < given[0] < 160 and 25 < given[1] < 100
+    assert 30 < given[0] < 160 and 18 < given[1] < 100
 
 
 def test_long_pull_glides_to_the_far_corner_and_is_remembered(rig, drag):
     card, placement, _ = rig
-    drag(card, placement, 420, 300, 0.5, hold=0.4)
+    drag(card, placement, 520, 320, 0.5, hold=0.4)
     assert corner(card) == ('A', True, True)
     assert placement.window == card.anchor() == (1920-12-WIDTH, 1080-12-HEIGHT) and card.target is None
     assert json.loads(card.home_file.read_text()) == card.home
     assert placement.handed_back == 1
 
 
-def test_flicks_pick_the_corner_in_their_direction(rig, drag):
+def test_pulls_pick_the_corner_in_their_direction(rig, drag):
     card, placement, _ = rig
-    drag(card, placement, 420, 300, 0.5, hold=0.4)
-    drag(card, placement, -110, 0, 0.05)
+    drag(card, placement, 520, 320, 0.5, hold=0.4)
+    drag(card, placement, -520, 0, 0.4)
     assert corner(card) == ('A', False, True) and placement.window == card.anchor()
-    _, path = drag(card, placement, 0, -110, 0.05)
+    drag(card, placement, 0, -320, 0.4)
     assert corner(card) == ('A', False, False) and placement.window == card.anchor()
-    assert min(y for _, y in path) < card.anchor()[1]
+
+
+def test_quick_flick_is_not_enough_to_leave_the_corner(rig, drag):
+    card, placement, _ = rig
+    drag(card, placement, 110, 0, 0.05)
+    drag(card, placement, 0, 110, 0.05)
+    assert corner(card) == ('A', False, False) and placement.window == (12, 42)
 
 
 def test_far_pull_snaps_to_the_next_corner_while_still_held(rig, pump):
@@ -60,13 +66,13 @@ def test_far_pull_snaps_to_the_next_corner_while_still_held(rig, pump):
     placement.pointer = (x, y)
     card.mousePressEvent(mouse(QEvent.MouseButtonPress))
     for i in range(1, 9):
-        placement.pointer = (x+150*i/8, y)
+        placement.pointer = (x+300*i/8, y)
         pump(0.06)
     pump(0.3)
     assert corner(card) == ('A', False, False) and placement.window[0] < 150
     placement.moves.clear()
     for i in range(1, 9):
-        placement.pointer = (x+150+250*i/8, y)
+        placement.pointer = (x+300+220*i/8, y)
         pump(0.06)
     pump(1.2)
     assert card.grab is not None and corner(card) == ('A', True, False)
@@ -81,7 +87,7 @@ def test_held_card_can_cross_two_corners_in_one_drag(rig, pump):
     x, y = placement.window[0]+60, placement.window[1]+60
     placement.pointer = (x, y)
     card.mousePressEvent(mouse(QEvent.MouseButtonPress))
-    for dx, dy in ((400, 0), (400, 260)):
+    for dx, dy in ((520, 0), (520, 320)):
         placement.pointer = (x+dx, y+dy)
         pump(0.5)
     assert card.grab is not None and corner(card) == ('A', True, True)
@@ -199,6 +205,34 @@ def test_lyrics_ease_to_the_current_line(rig, pump):
     assert 0.05 < card.focus < 0.95
     pump(0.8)
     assert abs(card.focus-1) < 0.05
+
+
+def test_first_and_last_lines_rest_at_the_edges_instead_of_the_middle(rig, pump):
+    card, _, player = rig
+    top = lambda row: card.rows[row][0] - card.scroll + HEIGHT/2
+    assert abs(top(0)-24) < 0.5
+    player.state = dataclasses.replace(SONG, position=30.5)
+    pump(2.6)
+    middle = top(15) + card.rows[15][1]/2
+    assert abs(middle-HEIGHT/2) < 1
+    player.state = dataclasses.replace(SONG, position=58.5)
+    pump(2.6)
+    assert abs(top(29) + card.rows[29][1] - (HEIGHT-24)) < 1
+
+
+def test_dragging_the_progress_bar_seeks_on_release(rig, pump):
+    card, placement, player = rig
+    spot, y = placement.window, card.bar_top()+2
+    card.mousePressEvent(mouse(QEvent.MouseButtonPress, (24+75, y)))
+    assert abs(card.now()-100.0) < 0.01 and player.seeks == []
+    card.mouseMoveEvent(mouse(QEvent.MouseMove, (24+120, y-30)))
+    pump(0.1)
+    assert abs(card.now()-160.0) < 0.01 and abs(card.focus-29) < 3
+    card.mouseReleaseEvent(mouse(QEvent.MouseButtonRelease, (24+120, y-30)))
+    pump(0.3)
+    assert player.seeks == [160.0] and card.seeking is None and abs(card.position-160.0) < 0.01
+    pump(1.5)
+    assert placement.window == spot and card.grab is None and abs(card.position-0.5) < 0.01
 
 
 def test_song_change_resets_and_player_going_away_clears(rig, pump):

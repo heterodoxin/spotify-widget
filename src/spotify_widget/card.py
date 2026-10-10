@@ -63,6 +63,7 @@ class Card(QWidget):
         self.unmuted = 1.0
         self.sliding = False
         self.volume_unsent, self.volume_sent, self.volume_hold = False, 0.0, 0.0
+        self.seeking, self.seek_hold = None, 0.0
         self.hover = self.pressed = None
 
         self.enabled, self.fade, self.attached = True, 0.0, False
@@ -137,6 +138,8 @@ class Card(QWidget):
         for action, (x, y) in BUTTONS.items():
             if abs(point.x()-x) <= 18 and abs(point.y()-y) <= 18:
                 return action
+        if self.length > 0 and PAD-6 <= point.x() <= PAD+ART+6 and abs(point.y()-self.bar_top()-2) <= 9:
+            return 'Seek'
         if self.volume is not None and abs(point.x()-SLIDER_X) <= 13:
             if abs(point.y()-SPEAKER_Y) <= 11:
                 return 'Mute'
@@ -147,6 +150,12 @@ class Card(QWidget):
     def change_volume(self, level):
         self.volume = max(0.0, min(1.0, level))
         self.volume_unsent, self.volume_hold = True, time.monotonic() + 1.5
+        self.timer.setInterval(7)
+        self.update()
+
+    def seek_to(self, x):
+        """Show the song as if it were at the point under the pointer, until release sends it."""
+        self.seeking = max(0.0, min(self.length-1, (x-PAD)/ART*self.length))
         self.timer.setInterval(7)
         self.update()
 
@@ -176,6 +185,9 @@ class Card(QWidget):
         if self.sliding:
             self.change_volume((SLIDER_BOTTOM-event.position().y())/(SLIDER_BOTTOM-SLIDER_TOP))
             return
+        if self.seeking is not None:
+            self.seek_to(event.position().x())
+            return
         hover = self.control_at(event.position()) if self.grab is None else None
         if hover != self.hover:
             self.hover = hover
@@ -194,6 +206,10 @@ class Card(QWidget):
         if self.pressed == 'Volume':
             self.pressed, self.sliding = None, True
             self.mouseMoveEvent(event)
+            return
+        if self.pressed == 'Seek':
+            self.pressed = None
+            self.seek_to(event.position().x())
             return
         if self.pressed:
             self.update()
@@ -216,7 +232,7 @@ class Card(QWidget):
             return
         now = time.monotonic()
         self.trail = [sample for sample in self.trail if now-sample[0] <= 0.1] + [(now, *point)]
-        home = self.aim(0.06)
+        home = self.aim(0.0)
         if home != self.home:
             # Pulled past its reach, the band lets go and takes hold again from the new corner on the side that gave.
             moved = [home['screen'] != self.home['screen'] or home[side] != self.home[side] for side in ('right', 'bottom')]
@@ -247,6 +263,14 @@ class Card(QWidget):
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.LeftButton:
             return
+        if self.seeking is not None:
+            # The card jumps at once and polls are ignored until the player has caught up.
+            self.position, self.observed, self.seeking = self.seeking, time.monotonic(), None
+            self.seek_hold = time.monotonic() + 1.0
+            self.pool.submit(self.player.seek, self.position)
+            self.released()
+            self.update()
+            return
         if self.sliding or self.pressed:
             action, self.pressed, self.sliding = self.pressed, None, False
             if action and self.control_at(event.position()) == action:
@@ -258,7 +282,7 @@ class Card(QWidget):
             return
         self.read_monitors()
         self.pull()
-        throw, self.home = self.throw(), self.aim(0.14)
+        throw, self.home = self.throw(), self.aim(0.05)
         self.grab, self.flying = None, False
         self.setCursor(Qt.OpenHandCursor)
         self.velocity = [self.velocity[a] + max(-2500.0, min(2500.0, throw[a]*0.35)) for a in (0, 1)]
@@ -288,7 +312,7 @@ class Card(QWidget):
         if self.volume_unsent and now-self.volume_sent >= 0.06:
             self.volume_unsent, self.volume_sent = False, now
             self.pool.submit(self.player.set_volume, self.volume)
-        moving |= self.volume_unsent or self.sliding
+        moving |= self.volume_unsent or self.sliding or self.seeking is not None
         if self.grab is not None:
             self.pull()
         if self.target is not None:
@@ -351,7 +375,9 @@ class Card(QWidget):
                     self.change_track(None, '', '', 0.0)
                 self.status, self.playing, self.volume = HINT, False, None
             else:
-                self.position, self.observed, self.playing = state.position, time.monotonic(), state.playing
+                self.playing = state.playing
+                if time.monotonic() >= self.seek_hold and self.seeking is None:
+                    self.position, self.observed = state.position, time.monotonic()
                 if time.monotonic() >= self.volume_hold:
                     self.volume = state.volume
                 if state.track_id != self.track:
@@ -394,6 +420,8 @@ class Card(QWidget):
         return mix(self.old_tint, self.tint, self.blend)
 
     def now(self):
+        if self.seeking is not None:
+            return self.seeking
         return self.position + (time.monotonic()-self.observed if self.playing else 0)
 
     # Lyrics.
@@ -423,10 +451,20 @@ class Card(QWidget):
         """The offset that puts the middle of the current line in the middle of the card."""
         if not self.rows:
             return 0.0
-        if index < 0:
-            return self.rows[0][0] - self.rows[0][1]
-        top, height, _ = self.rows[min(index, len(self.rows)-1)]
-        return top + height/2
+        top, height, _ = self.rows[max(0, min(index, len(self.rows)-1))]
+        low, high = self.scroll_range()
+        return max(low, min(high, top + height/2))
+
+    def scroll_range(self):
+        """The offsets that rest the first line at the top of the card and the last line at its bottom."""
+        top, height, _ = self.rows[-1]
+        low = self.height()/2 - PAD
+        return low, max(low, top + height - self.height()/2 + PAD)
+
+    def bar_top(self):
+        """Where the progress bar sits, under the song's name and artist."""
+        names = QFontMetricsF(font(12, QFont.Bold)).height() + 1 + QFontMetricsF(font(10, QFont.Medium)).height()
+        return PAD + ART + 14 + names + 12
 
     # Painting.
 
@@ -457,7 +495,10 @@ class Card(QWidget):
         ink.setCompositionMode(QPainter.CompositionMode_DestinationIn)
         edge = QLinearGradient(0, 0, 0, height)
         soft = 46/height
-        for stop, opacity in ((0, 0), (soft, 255), (1-soft, 255), (1, 0)):
+        # An edge melts away only when there are lines beyond it.
+        low, high = self.scroll_range()
+        above, below = min(1.0, (self.scroll-low)/46), min(1.0, (high-self.scroll)/46)
+        for stop, opacity in ((0, round(255*(1-max(0.0, above)))), (soft, 255), (1-soft, 255), (1, round(255*(1-max(0.0, below))))):
             edge.setColorAt(stop, QColor(0, 0, 0, opacity))
         ink.fillRect(QRectF(0, 0, width, height), edge)
         ink.end()
@@ -585,15 +626,19 @@ class Card(QWidget):
             painter.setPen(white(round(178*alpha)))
             painter.drawText(QRectF(PAD, y+title_metrics.height()+1, ART, artist_metrics.height()),
                              Qt.AlignLeft | Qt.AlignVCenter, artist_metrics.elidedText(artist, Qt.ElideRight, ART))
-        y += title_metrics.height() + 1 + artist_metrics.height() + 12
+        y = self.bar_top()
+        seeking = self.seeking is not None or self.hover == 'Seek'
 
         painter.setPen(Qt.NoPen)
         painter.setBrush(white(70))
         painter.drawRoundedRect(QRectF(PAD, y, ART, 4), 2, 2)
         elapsed = max(0.0, min(self.length, self.now())) if self.length > 0 else 0.0
         if self.length > 0:
-            painter.setBrush(white() if self.playing else white(150))
+            painter.setBrush(QColor(GREEN) if seeking else white() if self.playing else white(150))
             painter.drawRoundedRect(QRectF(PAD, y, max(4.0, ART*elapsed/self.length), 4), 2, 2)
+            if seeking:
+                painter.setBrush(white())
+                painter.drawEllipse(QPointF(PAD+ART*elapsed/self.length, y+2), 5.5, 5.5)
         clock = lambda seconds: f'{int(seconds)//60}:{int(seconds)%60:02d}'
         time_font = font(8, QFont.Medium)
         painter.setFont(time_font)

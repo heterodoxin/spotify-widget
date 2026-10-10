@@ -3,14 +3,14 @@ import math
 
 
 def rubber(distance, room):
-    """How far the card gives when pulled: two fifths at first, then less and less."""
-    return math.copysign((1 - 1/(abs(distance)*0.4/room + 1))*room, distance)
+    """How far the card gives when pulled: three tenths at first, then less and less."""
+    return math.copysign((1 - 1/(abs(distance)*0.3/room + 1))*room, distance)
 
 
-def pick_corner(right, bottom, pull, velocity, width, height, carry=0.14):
+def pick_corner(right, bottom, pull, velocity, width, height, carry=0.0):
     """The corner the card belongs in: where the pull and carry seconds of its momentum are heading."""
-    reach_x = min(width*0.18, 440)
-    reach_y = min(height*0.2, 280)
+    reach_x = min(width*0.24, 560)
+    reach_y = min(height*0.26, 360)
     aim_x = pull[0] + velocity[0]*carry
     aim_y = pull[1] + velocity[1]*carry
     if abs(aim_x) >= reach_x:
