@@ -1,10 +1,10 @@
-"""Linux and BSD: any media player that speaks MPRIS on the session bus."""
+"""Linux and BSD: Spotify, read over MPRIS on the session bus."""
 import threading
 
 from jeepney import DBusAddress, MessageType, Properties, new_method_call
 from jeepney.io.blocking import open_dbus_connection
 
-from lyrics_overlay.players.base import Player, State
+from lyrics_overlay.players.base import Player, State, is_spotify
 
 PREFIX = 'org.mpris.MediaPlayer2.'
 BUS = DBusAddress('/org/freedesktop/DBus', bus_name='org.freedesktop.DBus', interface='org.freedesktop.DBus')
@@ -43,9 +43,9 @@ class MprisPlayer(Player):
             return None
 
     def choose(self):
-        """Stay with the current player while it plays, otherwise move to one that does."""
+        """Stay with the current Spotify client while it plays, otherwise move to one that does."""
         names = [name for name in self.call(new_method_call(BUS, 'ListNames'))[0]
-                 if name.startswith(PREFIX) and not name.endswith('.playerctld')]
+                 if name.startswith(PREFIX) and is_spotify(name[len(PREFIX):])]
         if self.name not in names:
             self.name = None
         props = self.properties(self.name) if self.name else None

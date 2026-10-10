@@ -19,7 +19,7 @@ FONTS = ['Inter', 'SF Pro Display', 'Segoe UI', 'Noto Sans', 'Helvetica Neue', '
 GREEN = '#1ed760'
 BUTTONS = {'Previous': (PAD+ART/2-46, 287), 'PlayPause': (PAD+ART/2, 287), 'Next': (PAD+ART/2+46, 287)}
 SLIDER_X, SLIDER_TOP, SLIDER_BOTTOM, SPEAKER_Y = WIDTH-20, PAD+8, HEIGHT-PAD-30, HEIGHT-PAD-7
-IDLE, WAITING = 'Nothing playing', 'Loading lyrics…'
+IDLE, HINT, WAITING = 'Nothing playing', 'Play a song in Spotify to see its lyrics here', 'Loading lyrics…'
 
 
 def font(size, weight=QFont.Normal):
@@ -39,6 +39,7 @@ class Card(QWidget):
         self.setWindowFlags(placement.flags)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
         self.setFocusPolicy(Qt.NoFocus)
         self.setCursor(Qt.OpenHandCursor)
         self.setMouseTracking(True)
@@ -46,7 +47,7 @@ class Card(QWidget):
 
         self.track = None
         self.lines, self.times, self.rows = [], [], []
-        self.status = IDLE
+        self.status = HINT
         self.title = self.old_title = ''
         self.artist = self.old_artist = ''
         self.length = 0.0
@@ -72,7 +73,7 @@ class Card(QWidget):
             self.home.update(json.loads(self.home_file.read_text(encoding='utf-8')))
         except (OSError, ValueError):
             pass
-        self.grab, self.origin, self.trail = None, (0.0, 0.0), []
+        self.grab, self.origin, self.trail, self.flying = None, (0.0, 0.0), [], False
         self.at, self.velocity, self.target, self.sent = [0.0, 0.0], [0.0, 0.0], None, None
 
         self.read_monitors()
@@ -198,7 +199,7 @@ class Card(QWidget):
             self.grab = self.placement.cursor()
         except (OSError, ValueError, KeyError):
             return
-        self.origin = tuple(self.at)
+        self.origin, self.flying = tuple(self.at), False
         self.trail = [(time.monotonic(), *self.grab)]
         self.setCursor(Qt.ClosedHandCursor)
         self.last_frame = time.monotonic()
@@ -212,8 +213,31 @@ class Card(QWidget):
             return
         now = time.monotonic()
         self.trail = [sample for sample in self.trail if now-sample[0] <= 0.1] + [(now, *point)]
+        home = self.aim(0.06)
+        if home != self.home:
+            # Pulled past its reach, the band lets go and takes hold again from the new corner.
+            self.home, self.grab, self.flying = home, point, True
+            self.origin = tuple(float(v) for v in self.anchor())
         m = self.home_monitor()
         self.target = (self.origin[0] + rubber(point[0]-self.grab[0], m.w), self.origin[1] + rubber(point[1]-self.grab[1], m.h))
+
+    def throw(self):
+        """The hand's speed over the last tenth of a second."""
+        (t0, x0, y0), (t1, x1, y1) = self.trail[0], self.trail[-1]
+        return ((x1-x0)/(t1-t0), (y1-y0)/(t1-t0)) if t1-t0 >= 0.02 else (0.0, 0.0)
+
+    def aim(self, carry):
+        """The screen and corner the hand is heading for, counting carry seconds of its speed."""
+        _, x, y = self.trail[-1]
+        name = next((key for key, m in self.monitors.items() if m.contains(x, y)), self.home['screen'])
+        m = self.monitors.get(name) or self.home_monitor()
+        if name == self.home['screen']:
+            pulled = (x-self.grab[0], y-self.grab[1])
+            right, bottom = pick_corner(self.home['right'], self.home['bottom'], pulled, self.throw(), m.w, m.h, carry)
+        else:
+            # On another screen the card takes the corner nearest the hand, nudged by the throw.
+            right, bottom = pick_corner(x > m.x+m.w/2, y > m.y+m.h/2, (0, 0), self.throw(), m.w, m.h, carry)
+        return {'screen': name, 'right': right, 'bottom': bottom}
 
     def mouseReleaseEvent(self, event):
         if event.button() != Qt.LeftButton:
@@ -227,22 +251,11 @@ class Card(QWidget):
             return
         if self.grab is None:
             return
-        self.pull()
-        (t0, x0, y0), (t1, x1, y1) = self.trail[0], self.trail[-1]
-        pulled = (x1-self.grab[0], y1-self.grab[1])
-        throw = ((x1-x0)/(t1-t0), (y1-y0)/(t1-t0)) if t1-t0 >= 0.02 else (0.0, 0.0)
-        self.grab = None
-        self.setCursor(Qt.OpenHandCursor)
-
         self.read_monitors()
-        name = next((key for key, m in self.monitors.items() if m.contains(x1, y1)), self.home['screen'])
-        m = self.monitors.get(name) or self.home_monitor()
-        if name == self.home['screen']:
-            right, bottom = pick_corner(self.home['right'], self.home['bottom'], pulled, throw, m.w, m.h)
-        else:
-            # On another screen the card takes the corner nearest the hand, nudged by the throw.
-            right, bottom = pick_corner(x1 > m.x+m.w/2, y1 > m.y+m.h/2, (0, 0), throw, m.w, m.h)
-        self.home = {'screen': name, 'right': right, 'bottom': bottom}
+        self.pull()
+        throw, self.home = self.throw(), self.aim(0.18)
+        self.grab, self.flying = None, False
+        self.setCursor(Qt.OpenHandCursor)
         self.velocity = [self.velocity[a] + max(-2500.0, min(2500.0, throw[a]*0.35)) for a in (0, 1)]
         self.target = tuple(float(v) for v in self.anchor())
         try:
@@ -274,8 +287,11 @@ class Card(QWidget):
         if self.grab is not None:
             self.pull()
         if self.target is not None:
-            self.at, self.velocity, settled = spring(self.at, self.velocity, self.target, dt, self.grab is not None)
-            if settled:
+            # A held card follows stiffly, a freed or just-snapped one glides.
+            stiff = self.grab is not None and not self.flying
+            self.at, self.velocity, settled = spring(self.at, self.velocity, self.target, dt, stiff)
+            self.flying = self.flying and not settled
+            if settled and self.grab is None:
                 self.at, self.velocity, self.target = list(self.target), [0.0, 0.0], None
             self.place(round(self.at[0]), round(self.at[1]))
             moving = True
@@ -328,7 +344,7 @@ class Card(QWidget):
             if state is None:
                 if self.track is not None:
                     self.change_track(None, '', '', 0.0)
-                self.status, self.playing, self.volume = IDLE, False, None
+                self.status, self.playing, self.volume = HINT, False, None
             else:
                 self.position, self.observed, self.playing = state.position, time.monotonic(), state.playing
                 if time.monotonic() >= self.volume_hold:

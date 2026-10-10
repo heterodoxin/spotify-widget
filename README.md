@@ -1,10 +1,23 @@
 # lyrics-overlay
 
-![The card showing a song, its cover and its lyrics](docs/screenshot.png)
+<p align="center"><img src="docs/screenshot.png" width="680" alt="The card showing a song, its cover and its lyrics"></p>
+
+The card takes its colour from each cover, and falls back to grey when the cover has none:
+
+| | |
+| --- | --- |
+| <img src="docs/navy.png" width="420" alt="A dark blue card"> | <img src="docs/orange.png" width="420" alt="An orange card"> |
+| <img src="docs/crimson.png" width="420" alt="A red card with Japanese lyrics"> | <img src="docs/grey.png" width="420" alt="A grey card for a black and white cover, paused"> |
+
+The volume slider lights up under the pointer, and the card says so when Spotify has nothing to play:
+
+| | |
+| --- | --- |
+| <img src="docs/volume.png" width="420" alt="The volume slider under the pointer"> | <img src="docs/idle.png" width="420" alt="The card with nothing playing"> |
 
 ## What is this project
 
-lyrics-overlay is a small always-visible card that shows time-synced lyrics for the song that is playing, next to its cover, name, artist and progress. It reads the song from the system's media player interface, fetches matching lyrics from [lrclib.net](https://lrclib.net), and scrolls them in step with playback. The card also carries previous, play/pause and next buttons and a volume slider, takes its colour from the album cover, and can be dragged to any corner of any screen. It runs on Linux, Windows and macOS.
+lyrics-overlay is a small always-visible card that shows time-synced lyrics for the song playing in Spotify, next to its cover, name, artist and progress. It reads the song from Spotify through the system's media player interface, fetches matching lyrics from [lrclib.net](https://lrclib.net), and scrolls them in step with playback. The card also carries previous, play/pause and next buttons and a volume slider, takes its colour from the album cover, and can be dragged to any corner of any screen. It listens to Spotify only, so a video in a browser or any other player leaves it alone. It runs on Linux, Windows and macOS.
 
 ## Install
 
@@ -16,7 +29,7 @@ pip install ./lyrics-overlay
 lyrics-overlay
 ```
 
-`pip` installs every dependency: PySide6 and requests on all systems, jeepney on Linux, and the winrt media packages on Windows. Start a song in your player and the card appears in the top left corner of the screen in use.
+`pip` installs every dependency: PySide6 and requests on all systems, jeepney on Linux, and the winrt media packages on Windows. The card appears in the top left corner of the screen in use and fills in as soon as Spotify has a song.
 
 | Command | What it does |
 | --- | --- |
@@ -64,13 +77,13 @@ Measured on a Ryzen 9 9950X running Hyprland 0.56.2 with PySide6 6.11.1:
 - On Hyprland each window move is one message on the compositor's socket, which takes 0.06 ms, so dragging stays in step with the pointer.
 - Lyrics and covers are cached on disk, so a song costs one request to lrclib.net the first time it plays and none after that.
 - When the exact lookup finds nothing, or finds a record with only unsynced text, a second search by title and first artist picks the synced result whose length is within three seconds of the song. This recovers songs credited to several artists and songs whose album entry was never synced.
-- The test suite has 35 tests covering the drag physics, lyric parsing and lookup, and the card's controls. It runs without a display or a media player.
+- The test suite has 43 tests covering the drag physics, lyric parsing and lookup, the choice of player and the card's controls. It runs without a display or a media player.
 
 ## Why should I care
 
 - Lyrics stay on screen while you do something else, in a corner you choose, on every workspace.
 - You can pause, skip and change volume from the card instead of switching to the player.
-- It follows whichever player is playing. On Linux that is any MPRIS player, on Windows any app that uses the system media controls, and on macOS the Spotify app.
+- It follows Spotify and nothing else. A video in a browser, a game or another music player never replaces the song on the card, and with no Spotify song it reads "Nothing playing".
 - Nothing needs configuring. There is no account, no API key and no settings file; the only thing it remembers is the corner you left it in.
 - The only data that leaves the machine is the song's title, artist, album and length, sent to lrclib.net to find lyrics, plus the request for the cover image.
 
@@ -78,32 +91,35 @@ Measured on a Ryzen 9 9950X running Hyprland 0.56.2 with PySide6 6.11.1:
 
 ### Moving the card
 
-The card is tied to its corner by a spring. While you hold it, it follows the pointer by a little over half the distance at first and less the further it is pulled. When you let go, it keeps 35% of the pointer's speed and a damped spring carries it to a corner:
+The card is tied to its corner by a spring. While you hold it, it follows the pointer by a little over half the distance at first and less the further it is pulled. Its reach is 12% of the screen's width (at most 320 px) sideways and 14% of its height (at most 200 px) up or down:
 
-- It changes sides when the pull plus 0.18 seconds of its speed reaches 12% of the screen's width (at most 320 px) or 14% of its height (at most 200 px). A sideways flick therefore keeps its row and an upward flick keeps its column.
-- A shorter, slower release returns it to the corner it came from.
-- Released over another screen, it goes to the corner of that screen nearest the pointer.
+- Pulled past its reach, the card lets go of its corner and glides to the next one while the button is still down. The pull is then measured from the new corner, so one drag can carry it across two corners or onto another screen.
+- Speed counts toward the reach. While held, 0.06 seconds of the pointer's speed is added to the pull; on release, 0.18 seconds is, so a short flick is enough. A sideways flick keeps its row and an upward flick keeps its column.
+- On release the card keeps 35% of the pointer's speed and a damped spring carries it to its corner. A short, slow pull returns it to the corner it came from.
+- When the pointer enters another screen, the card goes to the corner of that screen nearest the pointer.
 
 The chosen screen and corner are saved and restored on the next start. If that screen is gone, the card moves to the screen in use.
 
 ### Platforms
 
-| System | How the song is read | How the card is placed | Volume |
+| System | How Spotify is read | How the card is placed | Volume |
 | --- | --- | --- | --- |
-| Linux on Hyprland | MPRIS over D-Bus | Native Wayland window moved through Hyprland's socket | Yes, if the player exposes it |
-| Linux on other desktops | MPRIS over D-Bus | X11 or XWayland window positioned by Qt | Yes, if the player exposes it |
-| Windows 10 and 11 | System media transport controls | Window positioned by Qt | No, the slider is hidden |
-| macOS | Spotify through AppleScript | Window positioned by Qt | Yes |
+| Linux on Hyprland | MPRIS over D-Bus | Native Wayland window moved through Hyprland's socket | Yes |
+| Linux on other desktops | MPRIS over D-Bus | X11 or XWayland window positioned by Qt | Yes |
+| Windows 10 and 11 | Spotify's session in the system media transport controls | Window positioned by Qt | No, the slider is hidden |
+| macOS | AppleScript | Window positioned by Qt | Yes |
 
 What has been run: Linux on Hyprland 0.56.2 with a Lua configuration, and the X11 path through XWayland on the same machine. The Windows and macOS backends and the classic (non-Lua) Hyprland dispatcher syntax are written against those platforms' interfaces and have not been run on them.
 
 On Linux the overlay picks its backend from the environment. Setting `LYRICS_OVERLAY_PLACEMENT=generic` forces the X11 path on Hyprland, and setting `QT_QPA_PLATFORM` yourself overrides the choice of Qt platform.
 
+On macOS the first start asks for permission to control Spotify, because the song is read through AppleScript.
+
 Wayland does not let a window choose its own position, which is why the card is moved through the compositor there. Clicking the card gives it keyboard focus, so on release the overlay hands focus back to the window that had it.
 
-### Players on Linux
+### Which players count as Spotify
 
-The overlay stays with the player it is showing for as long as that player is playing. When it stops and another MPRIS player is playing, the card switches to that one. `playerctld` is ignored because it mirrors other players.
+On Linux a player is read when its MPRIS name contains `spotify`, `ncspot` or `librespot`, which covers the desktop app, `spotifyd` and `spotify_player`. With several of them open, the card stays with the one it is showing while that one plays, and moves to another when it stops and the other is playing. On Windows the session whose app id contains `spotify` is read, which covers the installer build and the Microsoft Store build. Spotify playing in a browser tab is not read on any system.
 
 ### Files
 

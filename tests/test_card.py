@@ -31,16 +31,15 @@ def test_shows_the_song_and_its_lyrics(rig):
 
 def test_held_card_gives_way_but_resists(rig, drag):
     card, placement, _ = rig
-    given, _ = drag(card, placement, 300, 300, 0.5, hold=0.4)
-    assert 60 < given[0] < 300 and 60 < given[1] < 300
+    given, _ = drag(card, placement, 160, 100, 0.5, hold=0.4)
+    assert 40 < given[0] < 160 and 25 < given[1] < 100
 
 
 def test_long_pull_glides_to_the_far_corner_and_is_remembered(rig, drag):
     card, placement, _ = rig
-    _, path = drag(card, placement, 300, 300, 0.5, hold=0.4)
+    drag(card, placement, 300, 300, 0.5, hold=0.4)
     assert corner(card) == ('A', True, True)
     assert placement.window == card.anchor() == (1920-12-WIDTH, 1080-12-HEIGHT) and card.target is None
-    assert len(set(path)) > 12
     assert json.loads(card.home_file.read_text()) == card.home
     assert placement.handed_back == 1
 
@@ -55,6 +54,42 @@ def test_flicks_pick_the_corner_in_their_direction(rig, drag):
     assert min(y for _, y in path) < card.anchor()[1]
 
 
+def test_far_pull_snaps_to_the_next_corner_while_still_held(rig, pump):
+    card, placement, _ = rig
+    x, y = placement.window[0]+60, placement.window[1]+60
+    placement.pointer = (x, y)
+    card.mousePressEvent(mouse(QEvent.MouseButtonPress))
+    for i in range(1, 9):
+        placement.pointer = (x+150*i/8, y)
+        pump(0.06)
+    pump(0.3)
+    assert corner(card) == ('A', False, False) and placement.window[0] < 150
+    placement.moves.clear()
+    for i in range(1, 9):
+        placement.pointer = (x+150+130*i/8, y)
+        pump(0.06)
+    pump(1.2)
+    assert card.grab is not None and corner(card) == ('A', True, False)
+    assert abs(placement.window[0]-card.anchor()[0]) < 60 and len(set(placement.moves)) > 12
+    card.mouseReleaseEvent(mouse(QEvent.MouseButtonRelease))
+    pump(1.2)
+    assert corner(card) == ('A', True, False) and placement.window == card.anchor() and card.target is None
+
+
+def test_held_card_can_cross_two_corners_in_one_drag(rig, pump):
+    card, placement, _ = rig
+    x, y = placement.window[0]+60, placement.window[1]+60
+    placement.pointer = (x, y)
+    card.mousePressEvent(mouse(QEvent.MouseButtonPress))
+    for dx, dy in ((260, 0), (260, 200)):
+        placement.pointer = (x+dx, y+dy)
+        pump(0.5)
+    assert card.grab is not None and corner(card) == ('A', True, True)
+    card.mouseReleaseEvent(mouse(QEvent.MouseButtonRelease))
+    pump(1.6)
+    assert placement.window == card.anchor() == (1920-12-WIDTH, 1080-12-HEIGHT)
+
+
 def test_small_nudge_springs_back(rig, drag):
     card, placement, _ = rig
     drag(card, placement, 40, 30, 0.5, hold=0.2)
@@ -63,9 +98,16 @@ def test_small_nudge_springs_back(rig, drag):
 
 def test_dropping_on_another_screen_takes_its_nearest_corner(rig, drag):
     card, placement, _ = rig
-    drag(card, placement, 1900, -600, 0.6, hold=0.1)
+    drag(card, placement, 1900, -200, 0.6, hold=0.1)
     assert corner(card) == ('B', True, True)
     assert placement.window == card.anchor() == (2560-12-WIDTH, 0-12-HEIGHT)
+
+
+def test_pushing_on_into_another_screen_reaches_its_far_corner(rig, drag):
+    card, placement, _ = rig
+    drag(card, placement, 1900, -600, 0.6, hold=0.1)
+    assert corner(card) == ('B', True, False)
+    assert placement.window == card.anchor() == (2560-12-WIDTH, -1440+30+12)
 
 
 def test_buttons_reach_the_player_without_moving_the_card(rig, pump):
@@ -166,7 +208,7 @@ def test_song_change_resets_and_player_going_away_clears(rig, pump):
     assert card.title == 'Other' and card.old_title == 'Song' and card.blend == 1.0
     player.state = None
     pump(2.2)
-    assert card.track is None and card.status == card_module.IDLE and not card.playing and card.lines == []
+    assert card.track is None and card.status == card_module.HINT and (card.title or card_module.IDLE) == 'Nothing playing' and not card.playing and card.lines == []
 
 
 def test_hide_fades_out_and_show_returns_to_the_corner(rig, pump):

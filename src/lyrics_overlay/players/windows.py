@@ -1,4 +1,4 @@
-"""Windows: whatever app holds the system media controls."""
+"""Windows: Spotify, read through the system media controls."""
 import asyncio
 import hashlib
 from datetime import datetime, timezone
@@ -8,12 +8,13 @@ from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessio
 from winrt.windows.storage.streams import DataReader
 
 from lyrics_overlay.paths import cache_dir
-from lyrics_overlay.players.base import Player, State
+from lyrics_overlay.players.base import Player, State, is_spotify
 
 
 async def current_session():
+    """Spotify's media session, or None when it is not running."""
     manager = await SessionManager.request_async()
-    return manager.get_current_session()
+    return next((session for session in manager.get_sessions() if is_spotify(session.source_app_user_model_id)), None)
 
 
 async def save_thumbnail(reference, key):

@@ -36,12 +36,20 @@ def test_approach_closes_the_gap_without_passing_it():
 def test_released_spring_overshoots_then_settles_on_target():
     position, velocity, lowest = [0.0, 300.0], [0.0, -900.0], 300.0
     for _ in range(600):
-        position, velocity, settled = spring(position, velocity, (0.0, 0.0), 0.007, held=False)
+        position, velocity, settled = spring(position, velocity, (0.0, 0.0), 0.007, stiff=False)
         lowest = min(lowest, position[1])
         if settled:
             break
     assert settled and lowest < 0
 
 
-def test_held_spring_never_reports_settled():
-    assert spring([5.0, 5.0], [0.0, 0.0], (5.0, 5.0), 0.007, held=True)[2] is False
+def test_stiff_spring_closes_faster_than_a_loose_one():
+    stiff = spring([100.0, 0.0], [0.0, 0.0], (0.0, 0.0), 0.05, stiff=True)[0][0]
+    loose = spring([100.0, 0.0], [0.0, 0.0], (0.0, 0.0), 0.05, stiff=False)[0][0]
+    assert stiff < loose < 100.0
+
+
+def test_slow_pull_needs_the_full_reach_but_a_fast_one_does_not():
+    assert pick_corner(False, False, (200, 0), (0, 0), 1920, 1080, 0.06) == (False, False)
+    assert pick_corner(False, False, (240, 0), (0, 0), 1920, 1080, 0.06) == (True, False)
+    assert pick_corner(False, False, (200, 0), (900, 0), 1920, 1080, 0.06) == (True, False)

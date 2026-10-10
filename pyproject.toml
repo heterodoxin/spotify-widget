@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "lyrics-overlay"
 version = "1.0.0"
-description = "A floating card that shows synced lyrics for the song that is playing"
+description = "A floating card that shows synced lyrics for the song playing in Spotify"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -24,6 +24,7 @@ dependencies = [
     "jeepney>=0.8; sys_platform != 'win32' and sys_platform != 'darwin'",
     "winrt-runtime>=2.0; sys_platform == 'win32'",
     "winrt-Windows.Foundation>=2.0; sys_platform == 'win32'",
+    "winrt-Windows.Foundation.Collections>=2.0; sys_platform == 'win32'",
     "winrt-Windows.Media.Control>=2.0; sys_platform == 'win32'",
     "winrt-Windows.Storage.Streams>=2.0; sys_platform == 'win32'",
 ]

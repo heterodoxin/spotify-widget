@@ -1,6 +1,13 @@
 """What every player backend reports and accepts."""
 from dataclasses import dataclass
 
+SPOTIFY = ('spotify', 'ncspot', 'librespot')
+
+
+def is_spotify(name):
+    """Whether a bus name or app id belongs to Spotify or a client that plays from it."""
+    return any(client in name.lower() for client in SPOTIFY)
+
 
 @dataclass(frozen=True)
 class State:
