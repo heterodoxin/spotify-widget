@@ -29,27 +29,31 @@ def closest(results, duration):
     return min(close, key=lambda item: abs(item['duration']-duration)) if close else None
 
 
+def usable(data):
+    """Whether a record is worth keeping: it has synced lines or says the track has no words."""
+    return bool(data) and bool(data.get('syncedLyrics') or data.get('instrumental'))
+
+
 def fetch(title, artist, album, length):
     """Return (lines, status) for a song, where status explains an empty list."""
     params = dict(track_name=title, artist_name=artist, album_name=album, duration=round(length))
     path = cache_dir() / (hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()+'.json')
-    if path.exists():
-        data = json.loads(path.read_text(encoding='utf-8'))
-    else:
+    data = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
+    if not usable(data):
         response = requests.get(API+'/get', params=params, headers=HEADERS, timeout=12)
-        if response.status_code == 404:
-            # The exact lookup misses remasters and multi-artist credits, so search by title and first artist.
+        if response.status_code != 404:
+            response.raise_for_status()
+            data = response.json()
+        if not usable(data):
+            # The exact record can be missing or hold only plain text, so look for a synced one by title and first artist.
             query = dict(track_name=title, artist_name=artist.split(', ')[0])
             found = requests.get(API+'/search', params=query, headers=HEADERS, timeout=12)
             found.raise_for_status()
             data = closest(found.json(), params['duration'])
-            if data is None:
-                return [], 'No synced lyrics for this song'
-        else:
-            response.raise_for_status()
-            data = response.json()
+        if not usable(data):
+            return [], 'No synced lyrics for this song'
         path.write_text(json.dumps(data), encoding='utf-8')
-    return parse_lrc(data.get('syncedLyrics')), ('Instrumental' if data.get('instrumental') else 'No synced lyrics for this song')
+    return parse_lrc(data.get('syncedLyrics')), ('Instrumental' if data.get('instrumental') else '')
 
 
 def cover(source):

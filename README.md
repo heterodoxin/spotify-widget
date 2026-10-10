@@ -63,8 +63,8 @@ Measured on a Ryzen 9 9950X running Hyprland 0.56.2 with PySide6 6.11.1:
 - With a song playing and the card at rest, the overlay uses 3.4% of one core and 96 MB of memory, averaged over 30 seconds. It redraws at up to 140 frames a second only while something is moving and drops to a 25 Hz tick otherwise.
 - On Hyprland each window move is one message on the compositor's socket, which takes 0.06 ms, so dragging stays in step with the pointer.
 - Lyrics and covers are cached on disk, so a song costs one request to lrclib.net the first time it plays and none after that.
-- When the exact lookup finds nothing, a second search by title and first artist picks the synced result whose length is within three seconds of the song. This recovers songs credited to several artists.
-- The test suite has 33 tests covering the drag physics, lyric parsing and lookup, and the card's controls. It runs without a display or a media player.
+- When the exact lookup finds nothing, or finds a record with only unsynced text, a second search by title and first artist picks the synced result whose length is within three seconds of the song. This recovers songs credited to several artists and songs whose album entry was never synced.
+- The test suite has 35 tests covering the drag physics, lyric parsing and lookup, and the card's controls. It runs without a display or a media player.
 
 ## Why should I care
 

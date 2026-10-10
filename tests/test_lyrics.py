@@ -34,7 +34,7 @@ def test_fetch_caches_an_exact_match(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(lyrics, 'cache_dir', lambda: tmp_path)
     monkeypatch.setattr(lyrics.requests, 'get', lambda url, **kw: calls.append(url) or Reply(200, {'syncedLyrics': '[00:03.00]hello'}))
-    assert lyrics.fetch('Song', 'Artist', 'Album', 200.4) == ([(3.0, 'hello')], 'No synced lyrics for this song')
+    assert lyrics.fetch('Song', 'Artist', 'Album', 200.4) == ([(3.0, 'hello')], '')
     assert lyrics.fetch('Song', 'Artist', 'Album', 200.4)[0] == [(3.0, 'hello')]
     assert calls == [lyrics.API+'/get']
 
@@ -52,6 +52,27 @@ def test_fetch_searches_by_first_artist_when_the_exact_lookup_misses(tmp_path, m
     monkeypatch.setattr(lyrics.requests, 'get', get)
     assert lyrics.fetch('Song', 'One, Two', 'Album', 200)[0] == [(5.0, 'found')]
     assert asked[1] == (lyrics.API+'/search', {'track_name': 'Song', 'artist_name': 'One'})
+
+
+def test_fetch_searches_when_the_exact_record_has_only_plain_text(tmp_path, monkeypatch):
+    def get(url, params, **kw):
+        if url.endswith('/get'):
+            return Reply(200, {'plainLyrics': 'words', 'syncedLyrics': None, 'instrumental': False})
+        return Reply(200, [{'duration': 199, 'syncedLyrics': '[00:07.00]synced'}])
+
+    monkeypatch.setattr(lyrics, 'cache_dir', lambda: tmp_path)
+    monkeypatch.setattr(lyrics.requests, 'get', get)
+    assert lyrics.fetch('Song', 'Artist', 'Album', 200) == ([(7.0, 'synced')], '')
+
+
+def test_fetch_retries_a_cached_record_that_has_no_synced_lines(tmp_path, monkeypatch):
+    monkeypatch.setattr(lyrics, 'cache_dir', lambda: tmp_path)
+    monkeypatch.setattr(lyrics.requests, 'get', lambda url, **kw: Reply(200, {'syncedLyrics': '[00:01.00]first'}))
+    lyrics.fetch('Song', 'Artist', 'Album', 200)
+    cached, = tmp_path.iterdir()
+    cached.write_text(json.dumps({'plainLyrics': 'words', 'syncedLyrics': None}))
+    monkeypatch.setattr(lyrics.requests, 'get', lambda url, **kw: Reply(200, {'syncedLyrics': '[00:02.00]now synced'}))
+    assert lyrics.fetch('Song', 'Artist', 'Album', 200)[0] == [(2.0, 'now synced')]
 
 
 def test_fetch_reports_a_song_without_synced_lyrics_and_does_not_cache_it(tmp_path, monkeypatch):
