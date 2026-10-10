@@ -4,10 +4,10 @@ import sys
 
 def open_player():
     if sys.platform == 'win32':
-        from lyrics_overlay.players.windows import WindowsPlayer
+        from spotify_widget.players.windows import WindowsPlayer
         return WindowsPlayer()
     if sys.platform == 'darwin':
-        from lyrics_overlay.players.macos import MacPlayer
+        from spotify_widget.players.macos import MacPlayer
         return MacPlayer()
-    from lyrics_overlay.players.mpris import MprisPlayer
+    from spotify_widget.players.mpris import MprisPlayer
     return MprisPlayer()

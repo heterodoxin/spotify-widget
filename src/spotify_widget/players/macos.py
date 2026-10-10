@@ -1,7 +1,7 @@
 """macOS: the Spotify app, driven through AppleScript."""
 import subprocess
 
-from lyrics_overlay.players.base import Player, State
+from spotify_widget.players.base import Player, State
 
 SEPARATOR = '\x1f'
 READ = f'''

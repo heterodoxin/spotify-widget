@@ -1,6 +1,6 @@
 import json
 
-from lyrics_overlay import lyrics
+from spotify_widget import lyrics
 
 
 class Reply:

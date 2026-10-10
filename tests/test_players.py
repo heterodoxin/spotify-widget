@@ -1,5 +1,5 @@
-from lyrics_overlay.players.base import is_spotify
-from lyrics_overlay.players.mpris import PREFIX, MprisPlayer
+from spotify_widget.players.base import is_spotify
+from spotify_widget.players.mpris import PREFIX, MprisPlayer
 
 
 def song(title, status):

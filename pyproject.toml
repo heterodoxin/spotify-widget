@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lyrics-overlay"
+name = "spotify-widget"
 version = "1.0.0"
 description = "A floating card that shows synced lyrics for the song playing in Spotify"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "heterodoxin" }]
-keywords = ["lyrics", "spotify", "overlay", "mpris", "hyprland"]
+keywords = ["spotify", "lyrics", "widget", "mpris", "hyprland"]
 classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
@@ -33,13 +33,13 @@ dependencies = [
 test = ["pytest>=7"]
 
 [project.urls]
-Homepage = "https://github.com/heterodoxin/lyrics-overlay"
+Homepage = "https://github.com/heterodoxin/spotify-widget"
 
 [project.scripts]
-lyrics-overlay = "lyrics_overlay.app:main"
+spotify-widget = "spotify_widget.app:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lyrics_overlay"]
+packages = ["src/spotify_widget"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

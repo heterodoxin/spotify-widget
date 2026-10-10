@@ -1,9 +1,9 @@
-"""Where the overlay keeps its cache and its remembered corner."""
+"""Where the widget keeps its cache and its remembered corner."""
 import os
 import sys
 from pathlib import Path
 
-NAME = 'lyrics-overlay'
+NAME = 'spotify-widget'
 
 
 def cache_dir():

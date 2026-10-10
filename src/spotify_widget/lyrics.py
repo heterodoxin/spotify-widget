@@ -6,10 +6,10 @@ from urllib.parse import unquote, urlparse
 
 import requests
 
-from lyrics_overlay.paths import cache_dir
+from spotify_widget.paths import cache_dir
 
 API = 'https://lrclib.net/api'
-HEADERS = {'User-Agent': 'lyrics-overlay/1.0 (https://github.com/heterodoxin/lyrics-overlay)'}
+HEADERS = {'User-Agent': 'spotify-widget/1.0 (https://github.com/heterodoxin/spotify-widget)'}
 STAMP = re.compile(r'\[(\d+):(\d+(?:\.\d+)?)\]')
 
 

@@ -4,7 +4,7 @@ import sys
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCursor, QGuiApplication
 
-from lyrics_overlay.placement.base import Monitor, Placement
+from spotify_widget.placement.base import Monitor, Placement
 
 
 class GenericPlacement(Placement):

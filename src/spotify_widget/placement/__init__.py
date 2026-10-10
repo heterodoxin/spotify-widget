@@ -4,7 +4,7 @@ import sys
 
 
 def on_hyprland():
-    return bool(os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')) and os.environ.get('LYRICS_OVERLAY_PLACEMENT') != 'generic'
+    return bool(os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')) and os.environ.get('SPOTIFY_WIDGET_PLACEMENT') != 'generic'
 
 
 def prepare_environment():
@@ -22,7 +22,7 @@ def prepare_environment():
 
 def open_placement():
     if on_hyprland():
-        from lyrics_overlay.placement.hyprland import HyprlandPlacement
+        from spotify_widget.placement.hyprland import HyprlandPlacement
         return HyprlandPlacement()
-    from lyrics_overlay.placement.generic import GenericPlacement
+    from spotify_widget.placement.generic import GenericPlacement
     return GenericPlacement()

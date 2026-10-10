@@ -3,14 +3,14 @@ import json
 import sys
 
 COMMANDS = ('start', 'show', 'hide', 'toggle', 'quit', 'status')
-SERVER = 'lyrics-overlay'
-USAGE = '''usage: lyrics-overlay [command]
+SERVER = 'spotify-widget'
+USAGE = '''usage: spotify-widget [command]
 
   start    show the card, starting it if needed (the default)
   show     show the card
   hide     hide the card
   toggle   hide the card if it is shown, show it otherwise
-  quit     stop the overlay
+  quit     stop the widget
   status   print whether it is running and where the card sits
 '''
 
@@ -43,7 +43,7 @@ def serve(app, card):
         elif command == 'hide':
             card.set_shown(False)
         elif command == 'toggle':
-            card.set_shown(not card.enabled)
+            card.toggle()
         link.write(json.dumps({'running': True, 'shown': card.enabled, 'corner': card.home, 'song': card.title}).encode())
         link.flush()
         link.disconnectFromServer()
@@ -72,17 +72,18 @@ def main():
     if command in ('hide', 'quit'):
         return
 
-    from lyrics_overlay.placement import open_placement, prepare_environment
+    from spotify_widget.placement import open_placement, prepare_environment
     prepare_environment()
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication
-    from lyrics_overlay.card import Card
-    from lyrics_overlay.players import open_player
+    from spotify_widget.card import Card
+    from spotify_widget.hotkey import open_hotkey
+    from spotify_widget.players import open_player
 
-    QGuiApplication.setDesktopFileName('lyrics-overlay')
+    QGuiApplication.setDesktopFileName('spotify-widget')
     app = QApplication(sys.argv[:1])
-    app.setApplicationName('lyrics-overlay')
+    app.setApplicationName('spotify-widget')
     app.setQuitOnLastWindowClosed(False)
     card = Card(open_player(), open_placement())
-    server = serve(app, card)
+    server, hotkey = serve(app, card), open_hotkey(card.toggle)
     sys.exit(app.exec())

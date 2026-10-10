@@ -1,8 +1,8 @@
-from lyrics_overlay.motion import approach, pick_corner, rubber, spring
+from spotify_widget.motion import approach, pick_corner, rubber, spring
 
 
-def test_band_gives_about_half_then_less():
-    assert 50 < rubber(100, 1920) < 60
+def test_band_gives_two_fifths_then_less():
+    assert 35 < rubber(100, 1920) < 45
     assert rubber(1000, 1920) < 500
     assert rubber(-100, 1920) == -rubber(100, 1920)
     assert rubber(10**6, 1920) < 1920
@@ -13,7 +13,7 @@ def test_slow_short_pull_keeps_the_corner():
 
 
 def test_long_pull_switches_both_ways():
-    assert pick_corner(False, False, (300, 300), (0, 0), 1920, 1080) == (True, True)
+    assert pick_corner(False, False, (400, 300), (0, 0), 1920, 1080) == (True, True)
 
 
 def test_sideways_flick_keeps_the_row():
@@ -50,6 +50,6 @@ def test_stiff_spring_closes_faster_than_a_loose_one():
 
 
 def test_slow_pull_needs_the_full_reach_but_a_fast_one_does_not():
-    assert pick_corner(False, False, (200, 0), (0, 0), 1920, 1080, 0.06) == (False, False)
-    assert pick_corner(False, False, (240, 0), (0, 0), 1920, 1080, 0.06) == (True, False)
-    assert pick_corner(False, False, (200, 0), (900, 0), 1920, 1080, 0.06) == (True, False)
+    assert pick_corner(False, False, (320, 0), (0, 0), 1920, 1080, 0.06) == (False, False)
+    assert pick_corner(False, False, (360, 0), (0, 0), 1920, 1080, 0.06) == (True, False)
+    assert pick_corner(False, False, (320, 0), (900, 0), 1920, 1080, 0.06) == (True, False)

@@ -3,14 +3,14 @@ import math
 
 
 def rubber(distance, room):
-    """How far the card gives when pulled: about half at first, then less and less."""
-    return math.copysign((1 - 1/(abs(distance)*0.55/room + 1))*room, distance)
+    """How far the card gives when pulled: two fifths at first, then less and less."""
+    return math.copysign((1 - 1/(abs(distance)*0.4/room + 1))*room, distance)
 
 
-def pick_corner(right, bottom, pull, velocity, width, height, carry=0.18):
+def pick_corner(right, bottom, pull, velocity, width, height, carry=0.14):
     """The corner the card belongs in: where the pull and carry seconds of its momentum are heading."""
-    reach_x = min(width*0.12, 320)
-    reach_y = min(height*0.14, 200)
+    reach_x = min(width*0.18, 440)
+    reach_y = min(height*0.2, 280)
     aim_x = pull[0] + velocity[0]*carry
     aim_y = pull[1] + velocity[1]*carry
     if abs(aim_x) >= reach_x:
@@ -27,7 +27,7 @@ def approach(value, target, dt, rate):
 
 def spring(position, velocity, target, dt, stiff):
     """Advance a damped spring one frame and return (position, velocity, settled)."""
-    stiffness, damping = (520.0, 40.0) if stiff else (190.0, 21.0)
+    stiffness, damping = (520.0, 40.0) if stiff else (340.0, 30.0)
     steps = max(1, int(dt/0.004))
     step = dt/steps
     position, velocity = list(position), list(velocity)

@@ -9,10 +9,10 @@ from PySide6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QLinearGradient
                            QPolygonF)
 from PySide6.QtWidgets import QWidget
 
-from lyrics_overlay import lyrics
-from lyrics_overlay.colors import NEUTRAL, mix, tint
-from lyrics_overlay.motion import approach, pick_corner, rubber, spring
-from lyrics_overlay.paths import config_dir
+from spotify_widget import lyrics
+from spotify_widget.colors import NEUTRAL, mix, tint
+from spotify_widget.motion import approach, pick_corner, rubber, spring
+from spotify_widget.paths import config_dir
 
 WIDTH, HEIGHT, PAD, ART, GAP, RADIUS, MARGIN, LINE_GAP = 680, 326, 24, 150, 28, 12, 12, 10
 FONTS = ['Inter', 'SF Pro Display', 'Segoe UI', 'Noto Sans', 'Helvetica Neue', 'Arial']
@@ -35,7 +35,7 @@ class Card(QWidget):
         super().__init__()
         self.player, self.placement = player, placement
         self.pool = ThreadPoolExecutor(max_workers=4)
-        self.setWindowTitle('Lyrics Overlay')
+        self.setWindowTitle('Spotify Widget')
         self.setWindowFlags(placement.flags)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -120,6 +120,9 @@ class Card(QWidget):
         if anchor is not None and self.grab is None and self.target is None:
             self.at = [float(anchor[0]), float(anchor[1])]
             self.place(*anchor)
+
+    def toggle(self):
+        self.set_shown(not self.enabled)
 
     def set_shown(self, shown):
         self.enabled = shown
@@ -215,9 +218,11 @@ class Card(QWidget):
         self.trail = [sample for sample in self.trail if now-sample[0] <= 0.1] + [(now, *point)]
         home = self.aim(0.06)
         if home != self.home:
-            # Pulled past its reach, the band lets go and takes hold again from the new corner.
-            self.home, self.grab, self.flying = home, point, True
-            self.origin = tuple(float(v) for v in self.anchor())
+            # Pulled past its reach, the band lets go and takes hold again from the new corner on the side that gave.
+            moved = [home['screen'] != self.home['screen'] or home[side] != self.home[side] for side in ('right', 'bottom')]
+            self.home, self.flying = home, True
+            self.grab = tuple(point[a] if moved[a] else self.grab[a] for a in (0, 1))
+            self.origin = tuple(float(self.anchor()[a]) if moved[a] else self.origin[a] for a in (0, 1))
         m = self.home_monitor()
         self.target = (self.origin[0] + rubber(point[0]-self.grab[0], m.w), self.origin[1] + rubber(point[1]-self.grab[1], m.h))
 
@@ -253,7 +258,7 @@ class Card(QWidget):
             return
         self.read_monitors()
         self.pull()
-        throw, self.home = self.throw(), self.aim(0.18)
+        throw, self.home = self.throw(), self.aim(0.14)
         self.grab, self.flying = None, False
         self.setCursor(Qt.OpenHandCursor)
         self.velocity = [self.velocity[a] + max(-2500.0, min(2500.0, throw[a]*0.35)) for a in (0, 1)]
@@ -270,7 +275,7 @@ class Card(QWidget):
         now = time.monotonic()
         dt = min(now-self.last_frame, 0.05)
         self.last_frame = now
-        moving = False
+        moving = gliding = False
 
         if self.isVisible() and not self.attached:
             try:
@@ -294,7 +299,7 @@ class Card(QWidget):
             if settled and self.grab is None:
                 self.at, self.velocity, self.target = list(self.target), [0.0, 0.0], None
             self.place(round(self.at[0]), round(self.at[1]))
-            moving = True
+            gliding = True
 
         shown = self.enabled and self.attached
         if self.fade != (1.0 if shown else 0.0):
@@ -318,8 +323,8 @@ class Card(QWidget):
             self.scroll = approach(self.scroll, goal, dt, 8.0) if abs(self.scroll-goal) < 400 else goal
             moving = True
 
-        # Full rate only while something moves, a slow tick at rest.
-        self.timer.setInterval(7 if moving or self.grab is not None else 40)
+        # Full rate only while something moves, and a repaint only when what the card shows changed.
+        self.timer.setInterval(7 if moving or gliding or self.grab is not None else 40)
         if self.isVisible() and (moving or now-self.last_paint >= 0.25):
             self.last_paint = now
             self.update()

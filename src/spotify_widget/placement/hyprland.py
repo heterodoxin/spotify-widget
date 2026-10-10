@@ -2,10 +2,17 @@
 import json
 import os
 import socket
+import sys
 
 from PySide6.QtCore import Qt
 
-from lyrics_overlay.placement.base import Monitor, Placement
+from spotify_widget import hotkey
+from spotify_widget.placement.base import Monitor, Placement
+
+MASKS = {'shift': 1, 'ctrl': 4, 'alt': 8, 'super': 64}
+RULE = ('hl.window_rule({ name = "spotify-widget", match = { class = "^(spotify-widget)$" }, float = true, pin = true, '
+        'no_blur = true, no_shadow = true, no_dim = true, no_anim = true, no_initial_focus = true, no_follow_mouse = true, '
+        'border_size = 0, rounding = 12, opacity = "1.0 override 1.0 override", opaque = true })')
 
 
 def request(command):
@@ -27,6 +34,26 @@ class HyprlandPlacement(Placement):
         self.address = None
         self.lua = True
         self.last_active = ''
+        self.integrate()
+
+    def integrate(self):
+        """Give Hyprland the card's window rule and toggle key, again after each reload of its config."""
+        # A global in Hyprland's Lua state marks the work as done, and a reload clears it.
+        fresh = request(f'/repl if spotify_widget then return 0 end spotify_widget = true {RULE} return 1').strip()
+        combo = hotkey.parse(os.environ.get('SPOTIFY_WIDGET_HOTKEY', hotkey.DEFAULT))
+        if fresh == '0' or combo is None:
+            return
+        held, key = combo
+        mask = sum(MASKS[name] for name in held)
+        if any(b['modmask'] == mask and b['key'].lower() == key and not b['submap'] for b in json.loads(request('j/binds'))):
+            return
+        toggle = f'{sys.executable} -m spotify_widget toggle'
+        names = [name.upper() for name in sorted(held)]
+        if fresh == '1':
+            keys = ' + '.join(names + [key.upper()])
+            request(f'/eval hl.bind("{keys}", hl.dsp.exec_cmd([[{toggle}]]), {{ description = "Toggle Spotify Widget" }})')
+        else:
+            request(f"/keyword bind {' '.join(names)}, {key.upper()}, exec, {toggle}")
 
     def monitors(self):
         result = {}
@@ -67,6 +94,7 @@ class HyprlandPlacement(Placement):
             request(f'/dispatch movewindowpixel exact {x} {y},address:{self.address}')
 
     def tick(self):
+        self.integrate()
         active = json.loads(request('j/activewindow')).get('address', '')
         if active and active != self.address:
             self.last_active = active

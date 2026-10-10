@@ -9,10 +9,10 @@ from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QApplication
 
-from lyrics_overlay import card as card_module
-from lyrics_overlay import lyrics
-from lyrics_overlay.placement.base import Monitor, Placement
-from lyrics_overlay.players.base import Player, State
+from spotify_widget import card as card_module
+from spotify_widget import lyrics
+from spotify_widget.placement.base import Monitor, Placement
+from spotify_widget.players.base import Player, State
 
 
 class FakePlacement(Placement):

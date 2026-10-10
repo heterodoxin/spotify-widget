@@ -4,7 +4,7 @@ import threading
 from jeepney import DBusAddress, MessageType, Properties, new_method_call
 from jeepney.io.blocking import open_dbus_connection
 
-from lyrics_overlay.players.base import Player, State, is_spotify
+from spotify_widget.players.base import Player, State, is_spotify
 
 PREFIX = 'org.mpris.MediaPlayer2.'
 BUS = DBusAddress('/org/freedesktop/DBus', bus_name='org.freedesktop.DBus', interface='org.freedesktop.DBus')

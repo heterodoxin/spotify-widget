@@ -3,8 +3,8 @@ import json
 
 from PySide6.QtCore import QEvent
 
-from lyrics_overlay import card as card_module
-from lyrics_overlay.card import BUTTONS, HEIGHT, SLIDER_BOTTOM, SLIDER_TOP, SLIDER_X, SPEAKER_Y, WIDTH
+from spotify_widget import card as card_module
+from spotify_widget.card import BUTTONS, HEIGHT, SLIDER_BOTTOM, SLIDER_TOP, SLIDER_X, SPEAKER_Y, WIDTH
 
 from conftest import SONG, mouse
 
@@ -37,7 +37,7 @@ def test_held_card_gives_way_but_resists(rig, drag):
 
 def test_long_pull_glides_to_the_far_corner_and_is_remembered(rig, drag):
     card, placement, _ = rig
-    drag(card, placement, 300, 300, 0.5, hold=0.4)
+    drag(card, placement, 420, 300, 0.5, hold=0.4)
     assert corner(card) == ('A', True, True)
     assert placement.window == card.anchor() == (1920-12-WIDTH, 1080-12-HEIGHT) and card.target is None
     assert json.loads(card.home_file.read_text()) == card.home
@@ -46,7 +46,7 @@ def test_long_pull_glides_to_the_far_corner_and_is_remembered(rig, drag):
 
 def test_flicks_pick_the_corner_in_their_direction(rig, drag):
     card, placement, _ = rig
-    drag(card, placement, 300, 300, 0.5, hold=0.4)
+    drag(card, placement, 420, 300, 0.5, hold=0.4)
     drag(card, placement, -110, 0, 0.05)
     assert corner(card) == ('A', False, True) and placement.window == card.anchor()
     _, path = drag(card, placement, 0, -110, 0.05)
@@ -66,7 +66,7 @@ def test_far_pull_snaps_to_the_next_corner_while_still_held(rig, pump):
     assert corner(card) == ('A', False, False) and placement.window[0] < 150
     placement.moves.clear()
     for i in range(1, 9):
-        placement.pointer = (x+150+130*i/8, y)
+        placement.pointer = (x+150+250*i/8, y)
         pump(0.06)
     pump(1.2)
     assert card.grab is not None and corner(card) == ('A', True, False)
@@ -81,7 +81,7 @@ def test_held_card_can_cross_two_corners_in_one_drag(rig, pump):
     x, y = placement.window[0]+60, placement.window[1]+60
     placement.pointer = (x, y)
     card.mousePressEvent(mouse(QEvent.MouseButtonPress))
-    for dx, dy in ((260, 0), (260, 200)):
+    for dx, dy in ((400, 0), (400, 260)):
         placement.pointer = (x+dx, y+dy)
         pump(0.5)
     assert card.grab is not None and corner(card) == ('A', True, True)

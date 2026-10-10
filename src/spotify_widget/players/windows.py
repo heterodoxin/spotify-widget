@@ -7,8 +7,8 @@ from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessio
 from winrt.windows.media.control import GlobalSystemMediaTransportControlsSessionPlaybackStatus as Status
 from winrt.windows.storage.streams import DataReader
 
-from lyrics_overlay.paths import cache_dir
-from lyrics_overlay.players.base import Player, State, is_spotify
+from spotify_widget.paths import cache_dir
+from spotify_widget.players.base import Player, State, is_spotify
 
 
 async def current_session():
